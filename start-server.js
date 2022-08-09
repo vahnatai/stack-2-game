@@ -56,7 +56,7 @@ async function createMatch(player1, player2) {
 		RETURNING id, cells;
 	`);
 	const {id, cells} = insertResult.rows[0];
-	const match = new GameMatch(id, player1, player2, player1, cells);
+	const match = new GameMatch(id, player1, player2, player1, cells, pgClient);
 	matches.push(match);
 	return match;
 }
@@ -83,21 +83,7 @@ async function getMatch(username) {
 	const player1 = await getPlayer(p1Result.rows[0].username);
 	const player2 = await getPlayer(p2Result.rows[0].username);
 	const currentPlayer = matchData.current_player_id === player1.id ? player1 : player2;
-	return new GameMatch(matchData.id, player1, player2, currentPlayer, matchData.cells);
-}
-
-async function saveMatch(match) {
-	let cellsData = 'ARRAY [';
-	cellsData += match.board.cells.map(row => {
-		let rowText = 'ARRAY [';
-		rowText += row.map(cell => cell ? `'${cell}'` : 'NULL').join(',');
-		rowText += ']';
-		return rowText;
-	}).join(',');
-	cellsData += ']';
-	const result = await pgClient.query(`
-		UPDATE game_match SET cells = ${cellsData}, current_player_id = ${match.currentTurnPlayer.id} WHERE id = ${match.id};
-	`);
+	return new GameMatch(matchData.id, player1, player2, currentPlayer, matchData.cells, pgClient);
 }
 
 async function removeMatch(match) {
@@ -171,9 +157,6 @@ async function startServer() {
 				player.sendError(err.message);
 				return;
 			}
-			saveMatch(match);
-			match.player1.sendStatus(match);
-			match.player2.sendStatus(match);
 		},
 		'place-right': async (socket, {username, rowIndex}) => {
 			const player = await getPlayer(username);
@@ -192,9 +175,6 @@ async function startServer() {
 				player.sendError(err.message);
 				return;
 			}
-			saveMatch(match);
-			match.player1.sendStatus(match);
-			match.player2.sendStatus(match);
 		},
 	};
 
