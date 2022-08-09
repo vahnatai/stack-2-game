@@ -26,7 +26,8 @@ const {Client: PGClient} = require('pg');
 		await pgClient.query(`
 			CREATE TABLE player (
 				id SERIAL PRIMARY KEY,
-				username TEXT
+				username TEXT,
+				is_ai BOOLEAN NOT NULL DEFAULT FALSE
 			);
 		`);
 		await pgClient.query(`

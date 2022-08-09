@@ -28,11 +28,26 @@ async function getPlayer(username, newSocket=null) {
 		const result = await pgClient.query(`SELECT * FROM player WHERE username = '${username}';`);
 		if (result.rows.length) {
 			const data = result.rows[0];
-			player = new Player(data.id, username);
+			if (data.is_ai) {
+				player = new AIPlayer(data.id, username);
+			}
+			else {
+				player = new Player(data.id, username);
+			}
 		}
 		else {
 			// create if not existing
-			const createResult = await pgClient.query(`INSERT INTO player (username) VALUES ('${username}') RETURNING id;`);
+			const createResult = await pgClient.query(`
+				INSERT INTO player (
+					username,
+					is_ai
+				)
+				VALUES (
+					'${username}',
+					FALSE
+				)
+				RETURNING id;
+			`);
 			const data = createResult.rows[0];
 			player = new Player(data.id, username);
 		}
@@ -45,10 +60,12 @@ async function getPlayer(username, newSocket=null) {
 async function createAIPlayer() {
 	const insertResult = await pgClient.query(`
 		INSERT INTO player (
-			username
+			username,
+			is_ai
 		)
 		VALUES (
-			'roboperson'
+			'roboperson',
+			TRUE
 		)
 		RETURNING id, username;
 	`);
@@ -99,7 +116,16 @@ async function getMatch(username) {
 	const player1 = await getPlayer(p1Result.rows[0].username);
 	const player2 = await getPlayer(p2Result.rows[0].username);
 	const currentPlayer = matchData.current_player_id === player1.id ? player1 : player2;
-	return new GameMatch(matchData.id, player1, player2, currentPlayer, matchData.cells, pgClient);
+	const match = new GameMatch(matchData.id, player1, player2, currentPlayer, matchData.cells, pgClient);
+	match.onGameOver = async (winner) => {
+		winner = winner ? winner.username : null;
+		match.player1.sendGameOver(match, winner);
+		match.player2.sendGameOver(match, winner);
+		await removeMatch(match);
+		match.player1.socket.close();
+		match.player2.socket && match.player2.socket.close();
+	};
+	return match;
 }
 
 async function removeMatch(match) {
