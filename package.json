@@ -7,6 +7,7 @@
     "start": "node start.js",
     "db-up": "node db-up.js",
     "db-down": "node db-down.js",
+    "db-reset": "node db-down.js && node db-up.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
