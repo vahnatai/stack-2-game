@@ -1,0 +1,93 @@
+html {
+	background-color: black;
+}
+
+#playerPanel {
+	margin: 0 auto;
+	width: 520px;
+	display: flex;
+	flex-direction: row;
+	flex-wrap: nowrap;
+	justify-content: center;
+	font-weight: bold;
+}
+
+#player1Panel {
+	background-color: cornflowerblue;
+	width: 250px;
+	padding-top: 10px;
+	padding-bottom: 10px;
+	text-align: center;
+}
+
+#player1Panel.current {
+	color: yellow;
+}
+
+#player2Panel {
+	background-color: tomato;
+	width: 250px;
+	padding-top: 10px;
+	padding-bottom: 10px;
+	text-align: center;
+}
+
+#player2Panel.current {
+	color: yellow;
+}
+
+
+#boardGrid {
+	margin: 0 auto;
+	width: 520px;
+	background-color: white;
+	border-top: 2px solid red;
+	border-bottom: 2px solid red;
+}
+
+.boardRow {
+	display: flex;
+	flex-direction: row;
+	flex-wrap: nowrap;
+	justify-content: center;
+	
+	border-left: 2px solid yellowgreen;
+	border-right: 2px solid yellowgreen;
+}
+
+.boardCell {
+	width: 60px;
+	height: 30px;
+	padding-top: 30px;
+	border: 2px solid black;
+	text-align: center;
+	vertical-align: middle;
+}
+
+.boardCell.playerOne {
+	color: cornflowerblue;
+}
+
+.boardCell.playerTwo {
+	color: tomato;
+}
+
+.boardCell.available:hover {
+	border: 2px solid greenyellow;
+}
+
+.boardRow:nth-child(even) .boardCell:nth-child(even) {
+	background-color: black;
+}
+
+.boardRow:nth-child(even) .boardCell:nth-child(odd) {
+	background-color: white;
+}
+
+.boardRow:nth-child(odd) .boardCell:nth-child(even) {
+	background-color: white;
+}
+
+.boardRow:nth-child(odd) .boardCell:nth-child(odd) {
+	background-color: black;
+}
