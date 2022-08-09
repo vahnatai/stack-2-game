@@ -11,6 +11,10 @@ class GameBoard {
 		];
 	}
 
+	isRowFull(rowIndex) {
+		return this.cells[rowIndex].every(x => x);
+	}
+
 	isFull() {
 		return this.cells.map(row => row.every(x => x)).every(x => x);
 	}

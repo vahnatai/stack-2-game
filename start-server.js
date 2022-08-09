@@ -1,5 +1,6 @@
 require('dotenv').config();
 
+const AIPlayer = require('./AIPlayer');
 const GameMatch = require('./GameMatch');
 const Player = require('./Player');
 
@@ -27,11 +28,26 @@ async function getPlayer(username, newSocket=null) {
 		const result = await pgClient.query(`SELECT * FROM player WHERE username = '${username}';`);
 		if (result.rows.length) {
 			const data = result.rows[0];
-			player = new Player(data.id, username);
+			if (data.is_ai) {
+				player = new AIPlayer(data.id, username);
+			}
+			else {
+				player = new Player(data.id, username);
+			}
 		}
 		else {
 			// create if not existing
-			const createResult = await pgClient.query(`INSERT INTO player (username) VALUES ('${username}') RETURNING id;`);
+			const createResult = await pgClient.query(`
+				INSERT INTO player (
+					username,
+					is_ai
+				)
+				VALUES (
+					'${username}',
+					FALSE
+				)
+				RETURNING id;
+			`);
 			const data = createResult.rows[0];
 			player = new Player(data.id, username);
 		}
@@ -39,6 +55,23 @@ async function getPlayer(username, newSocket=null) {
 	}
 	if (player && newSocket) { player.socket = newSocket; }
 	return player;
+}
+
+async function createAIPlayer() {
+	const insertResult = await pgClient.query(`
+		INSERT INTO player (
+			username,
+			is_ai
+		)
+		VALUES (
+			'roboperson',
+			TRUE
+		)
+		RETURNING id, username;
+	`);
+	const { id, username } = insertResult.rows[0];
+	const aiPlayer = new AIPlayer(id, username);
+	return aiPlayer;
 }
 
 async function createMatch(player1, player2) {
@@ -56,7 +89,7 @@ async function createMatch(player1, player2) {
 		RETURNING id, cells;
 	`);
 	const {id, cells} = insertResult.rows[0];
-	const match = new GameMatch(id, player1, player2, player1, cells);
+	const match = new GameMatch(id, player1, player2, player1, cells, pgClient);
 	matches.push(match);
 	return match;
 }
@@ -83,21 +116,16 @@ async function getMatch(username) {
 	const player1 = await getPlayer(p1Result.rows[0].username);
 	const player2 = await getPlayer(p2Result.rows[0].username);
 	const currentPlayer = matchData.current_player_id === player1.id ? player1 : player2;
-	return new GameMatch(matchData.id, player1, player2, currentPlayer, matchData.cells);
-}
-
-async function saveMatch(match) {
-	let cellsData = 'ARRAY [';
-	cellsData += match.board.cells.map(row => {
-		let rowText = 'ARRAY [';
-		rowText += row.map(cell => cell ? `'${cell}'` : 'NULL').join(',');
-		rowText += ']';
-		return rowText;
-	}).join(',');
-	cellsData += ']';
-	const result = await pgClient.query(`
-		UPDATE game_match SET cells = ${cellsData}, current_player_id = ${match.currentTurnPlayer.id} WHERE id = ${match.id};
-	`);
+	const match = new GameMatch(matchData.id, player1, player2, currentPlayer, matchData.cells, pgClient);
+	match.onGameOver = async (winner) => {
+		winner = winner ? winner.username : null;
+		match.player1.sendGameOver(match, winner);
+		match.player2.sendGameOver(match, winner);
+		await removeMatch(match);
+		match.player1.socket.close();
+		match.player2.socket && match.player2.socket.close();
+	};
+	return match;
 }
 
 async function removeMatch(match) {
@@ -107,7 +135,7 @@ async function removeMatch(match) {
 	}
 	const result = await pgClient.query(`SELECT * FROM game_match WHERE id = '${match.id}';`);
 	if (!result.rows.length) {
-		throw new Error('Match to be removed is not in matches.');
+		console.info('Match to be removed is not in matches.');
 	}
 	await pgClient.query(`DELETE FROM game_match WHERE id = '${match.id}';`);
 }
@@ -124,7 +152,6 @@ async function startServer() {
 			const matchInProgress = await getMatch(username);
 			if (matchInProgress) {
 				console.log(`Player '${username}' reconnected!`);
-				console.log('player.sendStatus', player.sendStatus);
 				player.sendStatus(matchInProgress);
 				return;
 			}
@@ -154,6 +181,31 @@ async function startServer() {
 				waitingPlayer = null;
 			}
 		},
+		'summon-ai': async (socket, {username}) => {
+			if (!waitingPlayer || waitingPlayer.username !== username) {
+				console.error(`${username} is not the waiting player.`);
+				return;
+			}
+			const player = waitingPlayer;
+
+			const matchInProgress = await getMatch(username);
+			if (matchInProgress) {
+				player.sendError(`${username} is already in a game.`);
+				return;
+			}
+			
+			console.log(`Player '${username}' has summoned an AI opponent!`);
+			const aiPlayer = await createAIPlayer();
+			match = await createMatch(player, aiPlayer);
+			match.onGameOver = async (winner) => {
+				winner = winner ? winner.username : null;
+				match.player1.sendGameOver(match, winner);
+				await removeMatch(match);
+				socket.close();
+			};
+			player.sendStatus(match);
+			waitingPlayer = null;
+		}, 
 		'place-left': async (socket, {username, rowIndex}) => {
 			const player = await getPlayer(username);
 			const match = await getMatch(username);
@@ -171,9 +223,6 @@ async function startServer() {
 				player.sendError(err.message);
 				return;
 			}
-			saveMatch(match);
-			match.player1.sendStatus(match);
-			match.player2.sendStatus(match);
 		},
 		'place-right': async (socket, {username, rowIndex}) => {
 			const player = await getPlayer(username);
@@ -192,9 +241,6 @@ async function startServer() {
 				player.sendError(err.message);
 				return;
 			}
-			saveMatch(match);
-			match.player1.sendStatus(match);
-			match.player2.sendStatus(match);
 		},
 	};
 

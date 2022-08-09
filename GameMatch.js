@@ -1,7 +1,7 @@
 const GameBoard = require('./GameBoard');
 
 class GameMatch {
-	constructor(id, player1, player2, currentPlayer=null, cells=null) {
+	constructor(id, player1, player2, currentPlayer=null, cells=null, pgClient) {
 		this.id = id;
 		this.player1 = player1;
 		this.player2 = player2;
@@ -9,8 +9,11 @@ class GameMatch {
 		if (cells) {
 			this.board.cells = cells;
 		}
+		this.pgClient = pgClient;
+
 		this.currentTurnPlayer = currentPlayer || player1;
 		this.onGameOver = null;
+		this.isComplete = false;
 	}
 
 	getPlayer(username) {
@@ -24,13 +27,12 @@ class GameMatch {
 	}
 
 	nextTurn() {
-		const winData = this.checkGameOver();
-		if (winData) {
-			const {winner} = winData;
-			this.onGameOver(winner);
-		}
-		else {
-			this.currentTurnPlayer = this.currentTurnPlayer === this.player1 ? this.player2 : this.player1;
+		this.player1.sendStatus(this);
+		this.player2.sendStatus(this);
+		this.currentTurnPlayer = this.currentTurnPlayer === this.player1 ? this.player2 : this.player1;
+		this.checkGameOver();
+		if (this.isComplete) {
+			this.currentTurnPlayer = null;
 		}
 	}
 
@@ -38,19 +40,23 @@ class GameMatch {
 		if (this.board.isFull()) {
 			// stalemate
 			console.log(`Game with players '${this.player1.username}' and '${this.player2.username}' ended in a stalemate.`);
-			return {winner: null};
+			this.onGameOver(null);
+			this.isComplete = true;
+			return;
 		}
 
 		if (this.board.checkWin(GameMatch.P1_MARKER)) {
 			console.log(`Player 1, '${this.player1.username}', won the game!`);
-			return {winner: this.player1};
+			this.onGameOver(this.player1);
+			this.isComplete = true;
+			return;
 		}
 		else if (this.board.checkWin(GameMatch.P2_MARKER)) {
 			console.log(`Player 2, '${this.player2.username}', won the game!`);
-			return {winner: this.player2};
+			this.onGameOver(this.player2);
+			this.isComplete = true;
+			return;
 		}
-		// game not over
-		return null;
 	}
 
 	placeLeft(username, rowIndex) {
@@ -61,6 +67,11 @@ class GameMatch {
 		const marker = username === this.player1.username ? GameMatch.P1_MARKER : GameMatch.P2_MARKER;
 		this.board.placeLeft(marker, rowIndex);
 		this.nextTurn();
+
+		this.saveMatch();
+		this.player1.sendStatus(this);
+		this.player2.sendStatus(this);
+
 	}
 
 	placeRight(username, rowIndex) {
@@ -70,6 +81,27 @@ class GameMatch {
 		const marker = username === this.player1.username ? GameMatch.P1_MARKER : GameMatch.P2_MARKER;
 		this.board.placeRight(marker, rowIndex);
 		this.nextTurn();
+
+		this.saveMatch();
+		this.player1.sendStatus(this);
+		this.player2.sendStatus(this);
+	}
+
+	async saveMatch() {
+		let cellsData = 'ARRAY [';
+		cellsData += this.board.cells.map(row => {
+			let rowText = 'ARRAY [';
+			rowText += row.map(cell => cell ? `'${cell}'` : 'NULL').join(',');
+			rowText += ']';
+			return rowText;
+		}).join(',');
+		cellsData += ']';
+		const result = await this.pgClient.query(`
+			UPDATE game_match SET
+				cells = ${cellsData},
+				current_player_id = ${this.currentTurnPlayer ? this.currentTurnPlayer.id : 'NULL'}
+			WHERE id = ${this.id};
+		`);
 	}
 }
 GameMatch.P1_MARKER = 'X';

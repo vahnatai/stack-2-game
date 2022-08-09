@@ -17,7 +17,7 @@ class Player {
 		this.send({
 			type: 'STATUS',
 			cells: match.board.cells,
-			currentPlayer: match.currentTurnPlayer.username,
+			currentPlayer: match.currentTurnPlayer ? match.currentTurnPlayer.username : null,
 			player1: match.player1.username,
 			player2: match.player2.username,
 		});
