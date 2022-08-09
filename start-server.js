@@ -93,7 +93,7 @@ async function removeMatch(match) {
 	}
 	const result = await pgClient.query(`SELECT * FROM game_match WHERE id = '${match.id}';`);
 	if (!result.rows.length) {
-		throw new Error('Match to be removed is not in matches.');
+		console.info('Match to be removed is not in matches.');
 	}
 	await pgClient.query(`DELETE FROM game_match WHERE id = '${match.id}';`);
 }
