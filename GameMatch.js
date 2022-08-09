@@ -13,6 +13,7 @@ class GameMatch {
 
 		this.currentTurnPlayer = currentPlayer || player1;
 		this.onGameOver = null;
+		this.isComplete = false;
 	}
 
 	getPlayer(username) {
@@ -26,13 +27,12 @@ class GameMatch {
 	}
 
 	nextTurn() {
-		const winData = this.checkGameOver();
-		if (winData) {
-			const {winner} = winData;
-			this.onGameOver(winner);
-		}
-		else {
-			this.currentTurnPlayer = this.currentTurnPlayer === this.player1 ? this.player2 : this.player1;
+		this.player1.sendStatus(this);
+		this.player2.sendStatus(this);
+		this.currentTurnPlayer = this.currentTurnPlayer === this.player1 ? this.player2 : this.player1;
+		this.checkGameOver();
+		if (this.isComplete) {
+			this.currentTurnPlayer = null;
 		}
 	}
 
@@ -40,19 +40,23 @@ class GameMatch {
 		if (this.board.isFull()) {
 			// stalemate
 			console.log(`Game with players '${this.player1.username}' and '${this.player2.username}' ended in a stalemate.`);
-			return {winner: null};
+			this.onGameOver(null);
+			this.isComplete = true;
+			return;
 		}
 
 		if (this.board.checkWin(GameMatch.P1_MARKER)) {
 			console.log(`Player 1, '${this.player1.username}', won the game!`);
-			return {winner: this.player1};
+			this.onGameOver(this.player1);
+			this.isComplete = true;
+			return;
 		}
 		else if (this.board.checkWin(GameMatch.P2_MARKER)) {
 			console.log(`Player 2, '${this.player2.username}', won the game!`);
-			return {winner: this.player2};
+			this.onGameOver(this.player2);
+			this.isComplete = true;
+			return;
 		}
-		// game not over
-		return null;
 	}
 
 	placeLeft(username, rowIndex) {
