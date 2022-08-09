@@ -126,7 +126,6 @@ async function startServer() {
 			const matchInProgress = await getMatch(username);
 			if (matchInProgress) {
 				console.log(`Player '${username}' reconnected!`);
-				console.log('player.sendStatus', player.sendStatus);
 				player.sendStatus(matchInProgress);
 				return;
 			}
