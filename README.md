@@ -12,6 +12,8 @@ Many matches can operate at the same time. When a match is over, players are fre
 
 ## Running the Project
 
+You will need a .env file to not have to set environment variables manually. To use default values for everything, `cp .dist.env .env`.
+
 You will need a local PostgreSQL server with a user and database you have access to. For a simple setup that matches the example environment variable credentials, try a default installation and run the following as the postgres user:
 
 ```
