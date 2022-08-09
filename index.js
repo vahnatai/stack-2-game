@@ -19,10 +19,28 @@ function renderPlayers(player1, player2, currentPlayer) {
 
 	const player2Panel = document.createElement('div');
 	player2Panel.id = 'player2Panel';
-	if (currentPlayer === player2) {
+	if (player2 && currentPlayer === player2) {
 		player2Panel.classList.add('current');
 	}
-	player2Panel.appendChild(document.createTextNode(player2));
+
+	if (!player2 && !currentPlayer) {
+		const playWithAIButton = document.createElement('input');
+		playWithAIButton.type = 'button';
+		playWithAIButton.id = 'playWithAIButton';
+		playWithAIButton.value = 'Play with AI Opponent';
+		playWithAIButton.onclick = () => {
+			socket.send(JSON.stringify({
+				type: 'summon-ai',
+				data: {username: player1},
+			}));
+		};
+
+		player2Panel.appendChild(document.createTextNode('Waiting For Player...'));
+		player2Panel.appendChild(playWithAIButton);
+	}
+	else {
+		player2Panel.appendChild(document.createTextNode(player2));
+	}
 	playerPanel.appendChild(player2Panel);
 }
 
@@ -103,7 +121,7 @@ function renderBoard(username, currentPlayer, cells) {
 
 window.onload = async () => {
 	const username = prompt("Select a username");
-	renderPlayers(username, 'Waiting For Player...', null);
+	renderPlayers(username);
 
 	socket = new WebSocket(WEBSOCKET_ADDRESS);
 	socket.onopen = () => {

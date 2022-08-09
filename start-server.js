@@ -1,5 +1,6 @@
 require('dotenv').config();
 
+const AIPlayer = require('./AIPlayer');
 const GameMatch = require('./GameMatch');
 const Player = require('./Player');
 
@@ -39,6 +40,21 @@ async function getPlayer(username, newSocket=null) {
 	}
 	if (player && newSocket) { player.socket = newSocket; }
 	return player;
+}
+
+async function createAIPlayer() {
+	const insertResult = await pgClient.query(`
+		INSERT INTO player (
+			username
+		)
+		VALUES (
+			'roboperson'
+		)
+		RETURNING id, username;
+	`);
+	const { id, username } = insertResult.rows[0];
+	const aiPlayer = new AIPlayer(id, username);
+	return aiPlayer;
 }
 
 async function createMatch(player1, player2) {
@@ -140,6 +156,31 @@ async function startServer() {
 				waitingPlayer = null;
 			}
 		},
+		'summon-ai': async (socket, {username}) => {
+			if (!waitingPlayer || waitingPlayer.username !== username) {
+				console.error(`${username} is not the waiting player.`);
+				return;
+			}
+			const player = waitingPlayer;
+
+			const matchInProgress = await getMatch(username);
+			if (matchInProgress) {
+				player.sendError(`${username} is already in a game.`);
+				return;
+			}
+			
+			console.log(`Player '${username}' has summoned an AI opponent!`);
+			const aiPlayer = await createAIPlayer();
+			match = await createMatch(player, aiPlayer);
+			match.onGameOver = async (winner) => {
+				winner = winner ? winner.username : null;
+				match.player1.sendGameOver(match, winner);
+				await removeMatch(match);
+				socket.close();
+			};
+			player.sendStatus(match);
+			waitingPlayer = null;
+		}, 
 		'place-left': async (socket, {username, rowIndex}) => {
 			const player = await getPlayer(username);
 			const match = await getMatch(username);
