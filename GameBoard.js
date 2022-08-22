@@ -11,6 +11,12 @@ class GameBoard {
 		];
 	}
 
+	clone() {
+		const newBoard = new GameBoard();
+		newBoard.cells = this.cells.map(row => row.map(elem => elem));
+		return newBoard;
+	}
+
 	isRowFull(rowIndex) {
 		return this.cells[rowIndex].every(x => x);
 	}
