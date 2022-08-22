@@ -25,7 +25,7 @@ class GameBoard {
 		}
 		if (this.cells[row][column] === targetMarker) {
 			countSoFar++;
-			if (countSoFar === 4) {
+			if (countSoFar === GameBoard.WIN_COUNT) {
 				return true;
 			}
 
@@ -77,5 +77,6 @@ class GameBoard {
 		throw new Error('no room to place in row');
 	}
 }
+GameBoard.WIN_COUNT = 4;
 
 module.exports = GameBoard;
