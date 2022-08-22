@@ -26,6 +26,26 @@ class GameMatch {
 		return null;
 	}
 
+	getMarker(username) {
+		if (username === this.player1.username) {
+			return GameMatch.P1_MARKER;
+		}
+		if (username === this.player2.username) {
+			return GameMatch.P2_MARKER;
+		}
+		return null;
+	}
+
+	getOpponentMarker(username) {
+		if (username === this.player1.username) {
+			return GameMatch.P2_MARKER;
+		}
+		if (username === this.player2.username) {
+			return GameMatch.P1_MARKER;
+		}
+		return null;
+	}
+
 	nextTurn() {
 		this.player1.sendStatus(this);
 		this.player2.sendStatus(this);
@@ -78,7 +98,7 @@ class GameMatch {
 		if (username !== this.currentTurnPlayer.username) {
 			throw Error(`Not your turn, ${username}!`);
 		}
-		const marker = username === this.player1.username ? GameMatch.P1_MARKER : GameMatch.P2_MARKER;
+		const marker = this.getMarker(username);
 		this.board.placeRight(marker, rowIndex);
 		this.nextTurn();
 
